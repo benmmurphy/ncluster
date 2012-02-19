@@ -1,0 +1,8 @@
+{
+  "name": "ncluster",
+  "version": "0.1.0",
+  "dependencies": {
+    "log": "1.3.x"
+  },
+  "engines": { "node": ">= 0.6.0" }
+}
