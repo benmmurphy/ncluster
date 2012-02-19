@@ -4,6 +4,8 @@ Cluster solution based on node's cluster module.
 
 * Restarts workers that die
 * Zero downtime reloading of application when receiving SIGHUP
+* Gracefully dies when receiving SIGQUIT
+* Correctly reloads code when deployed with capistrano
 
 #Issues
 
