@@ -52,3 +52,8 @@ Example server.js
     server.get('/', function(req, res){
       res.send('Hello World from: ' + process.pid);
     });
+
+# Examples
+
+https://github.com/benmmurphy/nodejs_vagrant_helloworld
+
