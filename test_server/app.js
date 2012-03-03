@@ -1,3 +1,3 @@
 var ncluster = require('../lib/ncluster');
 
-ncluster('server.js');
+ncluster('server.js', {workers: 1});
