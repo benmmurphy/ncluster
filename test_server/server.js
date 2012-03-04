@@ -12,6 +12,10 @@ var http_server = http.createServer(function(req, res) {
         
       }
     });
+  } else if (req.url == "/dynamic") {
+    
+    res.end(require('./dynamic').get_value());
+
   } else {
     res.end('Hello From Worker');
   }

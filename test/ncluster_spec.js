@@ -129,6 +129,11 @@ describe("ncluster", function() {
         data.should.equal("Hello From Worker");
         fs.unlinkSync(path.join(__dirname, "..", "current"));
         fs.symlinkSync(path.join( __dirname, "..", "test_server2"), path.join(__dirname, "..", "current"), 'dir');
+        helper.get({host: 'localhost', port: 3000, path: '/dynamic'}, cb);
+      },
+
+      function(ok, data, cb) {
+        data.should.equal("Dynamic From Worker");
         child.kill("SIGHUP");
         helper.wait_until_line(tail, "Restart complete", cb);
       },
