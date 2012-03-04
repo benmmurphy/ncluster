@@ -87,6 +87,7 @@ describe("ncluster", function() {
     server.on("listening", function() {
         child = helper.spawn_cluster();
         child.on("exit", function() {
+            child = null;
             done();
         });
     });
@@ -102,22 +103,92 @@ describe("ncluster", function() {
     server.on("listening", function() {
         child = helper.spawn_cluster({workers: 2});
         child.on("exit", function() {
+            child = null;
             done();
         });
     });
         
   });
 
+  it("should reload code when receiving the HUP signal", function(done) {
+    
+    fs.unlinkSync(path.join(__dirname, "..", "current"));
+    fs.symlinkSync(path.join(__dirname, "..", "test_server"), path.join(__dirname, "..", "current"), 'dir');
+    var tail = helper.tail_log("test_server");
+    child = helper.spawn_cluster({workers: 1}, "current");
+    async.waterfall([
+      function(cb) {
+        helper.wait_until_initialized(tail, cb);
+      },
+
+      function(cb) {
+        helper.get({host: 'localhost', port: 3000}, cb);
+      },
+
+      function(ok, data, cb) {
+        data.should.equal("Hello From Worker");
+        fs.unlinkSync(path.join(__dirname, "..", "current"));
+        fs.symlinkSync(path.join( __dirname, "..", "test_server2"), path.join(__dirname, "..", "current"), 'dir');
+        child.kill("SIGHUP");
+        helper.wait_until_line(tail, "Restart complete", cb);
+      },
+
+      function(cb) {
+        helper.get({host: 'localhost', port: 3000}, cb);
+      },
+
+      function(ok, data, cb) {
+        data.should.equal("Hello From New Worker");
+        done();
+      }
+    ]);
+  });
+
+  it("should restart workers that don't send heartbeat signals", function(done) {
+    var tail = helper.tail_log();
+
+    child = helper.spawn_cluster();
+
+    var request = null;
+
+    async.waterfall([
+      function(cb) {
+        helper.wait_until_initialized(tail, cb);
+      },
+
+      function(cb) {
+        helper.get({host: 'localhost', port: 3000, path: '/block_run_loop'}, cb);
+      },
+
+      function(ok, data, cb) {
+        data.should.equal("BLOCKED");
+        helper.wait_until_line(tail, "Starting worker", cb);
+      },
+
+      function(cb) {
+        helper.get({host: 'localhost', port: 3000}, cb);
+      },
+
+      function(ok, data, cb) {
+        data.should.equal("Hello From Worker");
+        done();
+      }
+    ]);
+  });
+
+
+
 
 
   afterEach(function() {
     if (child != null) {
       child.kill("SIGKILL");
+      child = null;
     }
-
 
     if (server != null) {
       server.close();
+      server = null;
     }
   });
 });

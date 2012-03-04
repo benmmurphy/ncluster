@@ -5,16 +5,7 @@ var path = require('path');
 
 var http_server = http.createServer(function(req, res) {
   res.writeHead(200, {'Content-Type': 'text/plain'});
-  if (req.url == "/block_run_loop") {
-    res.end("BLOCKED");
-    process.nextTick(function() {
-      while (true) {
-        
-      }
-    });
-  } else {
-    res.end('Hello From Worker');
-  }
+  res.end('Hello From New Worker');
 });
 
 http_server.listen(3000);

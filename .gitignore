@@ -1,4 +1,5 @@
 node_modules
 test_server/log
+test_server2/log
 example_server/log
 npm-debug.log

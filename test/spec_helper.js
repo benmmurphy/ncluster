@@ -18,17 +18,20 @@ module.exports.eat_request = function(req, cb) {
   });
 }
 
-module.exports.tail_log = function() {
-  return child_process.spawn("tail", ['-n', '0', '-F', __dirname + "/../test_server/log/master.log"]);
+module.exports.tail_log = function(name) {
+  name = name || "test_server";
+  return child_process.spawn("tail", ['-n', '0', '-F', __dirname + "/../" + name + "/log/master.log"]);
 }
 
 module.exports.log_dir = function() {
   return __dirname + "/../test_server/log";
 }
 
-module.exports.spawn_cluster = function(options) {
+module.exports.spawn_cluster = function(options, name) {
   options = options || {workers : 1};
-  return child_process.spawn("node", [__dirname + "/../test_server/app.js", JSON.stringify(options)]);
+  name = name || "test_server";
+
+  return child_process.spawn("node", [__dirname + "/../" + name + "/app.js", JSON.stringify(options)]);
 }
 
 module.exports.after_connect = function (req, cb) {
