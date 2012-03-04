@@ -11,10 +11,17 @@ describe("ncluster", function() {
   var child = null;
   var server = null;
 
+  var spawn_cluster = function() {
+    child = helper.spawn_cluster.apply(helper, arguments);
+    child.on("exit", function() {
+      child = null;
+    });
+  };
+
   it("should continue to serve open requests when shutting down", function(done) {
     var tail = helper.tail_log();
 
-    child = helper.spawn_cluster();
+    spawn_cluster();
 
     var request = null;
 
@@ -57,7 +64,7 @@ describe("ncluster", function() {
   it("should reopen log files when receiving SIGUSR2", function(done) {
     var tail = helper.tail_log();
 
-    child = helper.spawn_cluster();
+    spawn_cluster();
 
     var request = null;
 
@@ -73,8 +80,14 @@ describe("ncluster", function() {
       },
 
       function(cb) {
+        helper.get({host: 'localhost', port: 3000}, cb);
+      },
+
+      function(ok, data, cb) {
+        data.should.equal("Hello From Worker");
         done();
       }
+
     ]);
   });
 
@@ -85,7 +98,7 @@ describe("ncluster", function() {
     server.listen(3000);
 
     server.on("listening", function() {
-        child = helper.spawn_cluster();
+        spawn_cluster();
         child.on("exit", function() {
             child = null;
             done();
@@ -101,7 +114,7 @@ describe("ncluster", function() {
     server.listen(3000);
 
     server.on("listening", function() {
-        child = helper.spawn_cluster({workers: 2});
+        spawn_cluster({workers: 2});
         child.on("exit", function() {
             child = null;
             done();
@@ -120,7 +133,7 @@ describe("ncluster", function() {
     }
     fs.symlinkSync(path.join(__dirname, "..", "test_server"), path.join(__dirname, "..", "current"), 'dir');
     var tail = helper.tail_log("test_server");
-    child = helper.spawn_cluster({workers: 1}, "current");
+    spawn_cluster({workers: 1}, "current");
     async.waterfall([
       function(cb) {
         helper.wait_until_initialized(tail, cb);
@@ -157,7 +170,7 @@ describe("ncluster", function() {
   it("should restart workers that don't send heartbeat signals", function(done) {
     var tail = helper.tail_log();
 
-    child = helper.spawn_cluster();
+    spawn_cluster();
 
     var request = null;
 
@@ -190,16 +203,30 @@ describe("ncluster", function() {
 
 
 
-  afterEach(function() {
-    if (child != null) {
-      child.kill("SIGKILL");
-      child = null;
-    }
+  afterEach(function(done) {
 
-    if (server != null) {
-      server.close();
-      server = null;
-    }
+    async.waterfall([
+      function(cb) {
+        if (child == null) {
+          cb();
+        } else {
+          child.kill("SIGKILL");
+          child.on("exit", function() {
+            cb();
+          });
+          child = null;
+        }
+      },
+
+      function(cb) {
+
+        if (server != null) {
+          server.close();
+          server = null;
+        }
+        done();
+      }
+    ]);
   });
 });
 
