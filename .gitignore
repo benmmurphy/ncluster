@@ -1,1 +1,4 @@
 node_modules
+test_server/log
+example_server/log
+npm-debug.log
