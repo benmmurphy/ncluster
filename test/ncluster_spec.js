@@ -111,8 +111,13 @@ describe("ncluster", function() {
   });
 
   it("should reload code when receiving the HUP signal", function(done) {
-    
-    fs.unlinkSync(path.join(__dirname, "..", "current"));
+   
+     
+    try {
+      fs.unlinkSync(path.join(__dirname, "..", "current"));
+    } catch(e) {
+      //ignore
+    }
     fs.symlinkSync(path.join(__dirname, "..", "test_server"), path.join(__dirname, "..", "current"), 'dir');
     var tail = helper.tail_log("test_server");
     child = helper.spawn_cluster({workers: 1}, "current");
