@@ -1,5 +1,4 @@
 var http = require('http');
-var cluster = require('cluster');
 var net = require('net');
 var crypto = require('crypto');
 var fs = require('fs');
