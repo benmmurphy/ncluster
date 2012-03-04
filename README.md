@@ -7,6 +7,11 @@ Cluster solution based on node's cluster module.
 * Gracefully dies when receiving SIGQUIT
 * Correctly reloads code when deployed with capistrano
 
+# Hacks
+
+* Overrides net._createServerHandle to track sockets open by master so they can be closed during graceful shutdown. If they are not closed then new clients will hang instead of receiving connection refused.
+* Overrides net.Server.prototype.listen in worker to ensure an error is generated if a port cannot be bound to
+
 #Issues
 
 * Not enough testing
@@ -28,30 +33,15 @@ Example app.js
 Example server.js
 
     var http = require('http');
-    var express = require('express');
-
-
-    var server = express.createServer(
-        express.logger()
-    );
-
-    server.on("close", function() {
-      process.exit(0);
+    var http_server = http.createServer(function(req, res) {
+      res.writeHead(200, {'Content-Type': 'text/plain'});
+      res.end('Hello From Worker\n');
     });
 
-    server.on("listening", function() {
-      process.send("ncluster:ready");
-    });
+    http_server.listen(3000);
 
-    process.on("SIGQUIT", function() {
-      server.close();
-    });
 
-    server.listen(3000);
-
-    server.get('/', function(req, res){
-      res.send('Hello World from: ' + process.pid);
-    });
+    module.exports = http_server;
 
 # Examples
 
