@@ -108,7 +108,7 @@ describe("ncluster", function() {
   });
 
   it("should shutdown if it can't bind to the port and there are multiple workers", function(done) {
-    this.timeout(5000);
+    this.timeout(10000);
     
     server = new net.Server();
     server.listen(3000);
@@ -170,7 +170,7 @@ describe("ncluster", function() {
   it("should restart workers that don't send heartbeat signals", function(done) {
     var tail = helper.tail_log();
 
-    spawn_cluster();
+    spawn_cluster({heartbeat_timeout: 1000, heartbeat_interval: 100});
 
     var request = null;
 
@@ -210,7 +210,7 @@ describe("ncluster", function() {
         if (child == null) {
           cb();
         } else {
-          child.kill("SIGKILL");
+          child.kill("SIGTERM");
           child.on("exit", function() {
             cb();
           });
