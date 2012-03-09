@@ -18,6 +18,40 @@ describe("ncluster", function() {
     });
   };
 
+  it("should force kill open children when shutting down", function(done) {
+    var tail = helper.tail_log();
+    spawn_cluster({kill_wait_timeout: 500});
+
+    var request = null;
+    async.waterfall([
+      function(cb) {
+        helper.wait_until_initialized(tail, cb);
+      },
+
+      function(cb) {
+        request = http.request({method: 'POST', host: 'localhost', port: 3000, path: '/', agent: false});
+        helper.after_connect(request, cb);
+      },
+
+      function(cb) {
+        child.kill("SIGQUIT");
+        helper.wait_until_line(tail, "SIGQUIT", cb);
+      },
+
+      function(cb) {
+        helper.wait_until_line(tail, "SIGKILL", cb);
+      },
+
+      function(cb) {
+        request.on("error", function() {console.log("LOLLOLS");});
+        request.abort();
+        child.on("exit", function() {
+          done();
+        });
+      }
+   ]);
+
+  });
   it("should continue to serve open requests when shutting down", function(done) {
     var tail = helper.tail_log();
 
