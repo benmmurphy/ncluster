@@ -12,6 +12,17 @@ module.exports.get = function (options, cb) {
   });
 }
 
+module.exports.eat_socket = function(socket, cb) {
+  var buf = "";
+  socket.on("data", function(data) {
+    buf += data.toString();
+  });
+
+  socket.on("end", function() {
+    cb(null, buf);
+  });
+}
+
 module.exports.eat_request = function(req, cb) {
   req.on("response", function(res) {
     eat_response(res, cb);
@@ -31,7 +42,11 @@ module.exports.spawn_cluster = function(options, name) {
   options = options || {workers : 1};
   name = name || "test_server";
 
-  return child_process.spawn("node", [__dirname + "/../" + name + "/app.js", JSON.stringify(options)]);
+  var child = child_process.spawn("node", [__dirname + "/../" + name + "/app.js", JSON.stringify(options)]);
+  child.stdout.on("data", function(data) {
+    console.log("CLUSTER: ", data.toString());
+  });
+  return child;
 }
 
 module.exports.after_connect = function (req, cb) {

@@ -201,6 +201,48 @@ describe("ncluster", function() {
     ]);
   });
 
+  it("should close keep alive connections when shutting down", function(done) {
+    var tail = helper.tail_log();
+    var agent = new http.Agent();
+    agent.maxSockets = 1;
+
+    spawn_cluster();
+    var socket = null;
+
+    async.waterfall([
+
+      function(cb) {
+        helper.wait_until_initialized(tail, cb);
+      },
+
+      function(cb) {
+        socket = net.connect(3000, cb);
+      },
+
+      function(cb) {
+        child.kill("SIGQUIT");
+        helper.wait_until_line(tail, "SIGQUIT", cb);
+      },
+
+      function(cb) {
+        socket.write("GET / HTTP/1.1\r\nHost:localhost\r\n\r\n");
+        helper.eat_socket(socket, cb);
+      },
+
+      function(data, cb) {
+        data.should.match(/Hello From Worker/);
+        data.should.match(/Connection: close/);
+        helper.get({host: 'localhost', port: 3000}, cb);
+      },
+
+      function(ok, data, cb) {
+        ok.should.equal(false);
+        done();
+      }
+    ]);
+
+  });
+
   it("should restart workers that don't send heartbeat signals", function(done) {
     var tail = helper.tail_log();
 
