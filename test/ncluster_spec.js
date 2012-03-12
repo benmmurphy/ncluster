@@ -8,8 +8,22 @@ var path = require('path');
 
 describe("ncluster", function() {
 
+
   var child = null;
   var server = null;
+  var tail = null;
+
+  var wait_for_child = function(done) {
+    if (child == null || child.exitCode != null) {
+      child = null;
+      done();
+    } else {
+      child.on("exit", function() {
+        child = null; 
+        done();
+      });
+    }
+  };
 
   var spawn_cluster = function() {
     child = helper.spawn_cluster.apply(helper, arguments);
@@ -19,7 +33,8 @@ describe("ncluster", function() {
   };
 
   it("should force kill open children when shutting down", function(done) {
-    var tail = helper.tail_log();
+    this.timeout(10000);
+    tail = helper.tail_log();
     spawn_cluster({kill_wait_timeout: 500});
 
     var request = null;
@@ -34,6 +49,7 @@ describe("ncluster", function() {
       },
 
       function(cb) {
+        request.on("error", function() {console.log("LOLLOLS");});
         child.kill("SIGQUIT");
         helper.wait_until_line(tail, "SIGQUIT", cb);
       },
@@ -43,17 +59,15 @@ describe("ncluster", function() {
       },
 
       function(cb) {
-        request.on("error", function() {console.log("LOLLOLS");});
         request.abort();
-        child.on("exit", function() {
-          done();
-        });
+        wait_for_child(done);
       }
    ]);
 
   });
   it("should continue to serve open requests when shutting down", function(done) {
-    var tail = helper.tail_log();
+    this.timeout(10000);
+    tail = helper.tail_log();
 
     spawn_cluster();
 
@@ -70,12 +84,20 @@ describe("ncluster", function() {
       },
 
       function(cb) {
+        setTimeout(cb, 500); /* we might still be in backlog :( */
+      },
+
+      function(cb) {
         child.kill("SIGQUIT");
         helper.wait_until_line(tail, "SIGQUIT", cb);
       },
 
       function(cb) {
-        helper.get({host: 'localhost', port: 3000}, cb);
+        setTimeout(cb, 500);
+      },
+
+      function(cb) {
+        helper.get({host: 'localhost', port: 3000, agent: false}, cb);
       },
 
       function(ok, data, cb) {
@@ -87,7 +109,7 @@ describe("ncluster", function() {
       function(ok, data, cb) {
         ok.should.equal(true);
         data.should.equal("Hello From Worker");
-        child.on("exit", function() {done(); });
+        wait_for_child(done);
       }
 
     ]);
@@ -96,7 +118,8 @@ describe("ncluster", function() {
   });
 
   it("should reopen log files when receiving SIGUSR2", function(done) {
-    var tail = helper.tail_log();
+    this.timeout(10000);
+    tail = helper.tail_log();
 
     spawn_cluster();
 
@@ -114,7 +137,7 @@ describe("ncluster", function() {
       },
 
       function(cb) {
-        helper.get({host: 'localhost', port: 3000}, cb);
+        helper.get({host: 'localhost', port: 3000, agent: false}, cb);
       },
 
       function(ok, data, cb) {
@@ -126,17 +149,14 @@ describe("ncluster", function() {
   });
 
   it("should shutdown if it can't bind to the port", function(done) {
-    this.timeout(5000);
+    this.timeout(10000);
     
     server = new net.Server();
     server.listen(3000);
 
     server.on("listening", function() {
         spawn_cluster();
-        child.on("exit", function() {
-            child = null;
-            done();
-        });
+        wait_for_child(done);
     });
         
   });
@@ -149,16 +169,13 @@ describe("ncluster", function() {
 
     server.on("listening", function() {
         spawn_cluster({workers: 2});
-        child.on("exit", function() {
-            child = null;
-            done();
-        });
+        wait_for_child(done);
     });
         
   });
 
   it("should reload code when receiving the HUP signal", function(done) {
-   
+    this.timeout(10000); 
      
     try {
       fs.unlinkSync(path.join(__dirname, "..", "current"));
@@ -166,7 +183,7 @@ describe("ncluster", function() {
       //ignore
     }
     fs.symlinkSync(path.join(__dirname, "..", "test_server"), path.join(__dirname, "..", "current"), 'dir');
-    var tail = helper.tail_log("test_server");
+    tail = helper.tail_log("test_server");
     spawn_cluster({workers: 1}, "current");
     async.waterfall([
       function(cb) {
@@ -174,14 +191,14 @@ describe("ncluster", function() {
       },
 
       function(cb) {
-        helper.get({host: 'localhost', port: 3000}, cb);
+        helper.get({host: 'localhost', port: 3000, agent: false}, cb);
       },
 
       function(ok, data, cb) {
         data.should.equal("Hello From Worker");
         fs.unlinkSync(path.join(__dirname, "..", "current"));
         fs.symlinkSync(path.join( __dirname, "..", "test_server2"), path.join(__dirname, "..", "current"), 'dir');
-        helper.get({host: 'localhost', port: 3000, path: '/dynamic'}, cb);
+        helper.get({host: 'localhost', port: 3000, path: '/dynamic', agent: false}, cb);
       },
 
       function(ok, data, cb) {
@@ -191,10 +208,11 @@ describe("ncluster", function() {
       },
 
       function(cb) {
-        helper.get({host: 'localhost', port: 3000}, cb);
+        helper.get({host: 'localhost', port: 3000, agent: false}, cb);
       },
 
       function(ok, data, cb) {
+        ok.should.equal(true);
         data.should.equal("Hello From New Worker");
         done();
       }
@@ -202,9 +220,8 @@ describe("ncluster", function() {
   });
 
   it("should close keep alive connections when shutting down", function(done) {
-    var tail = helper.tail_log();
-    var agent = new http.Agent();
-    agent.maxSockets = 1;
+    this.timeout(10000);
+    tail = helper.tail_log();
 
     spawn_cluster();
     var socket = null;
@@ -216,12 +233,20 @@ describe("ncluster", function() {
       },
 
       function(cb) {
-        socket = net.connect(3000, cb);
+        socket = net.connect(3000, 'localhost', cb);
+      },
+
+      function(cb) {
+        setTimeout(cb, 500); /* we still might be in kernel backlog */
       },
 
       function(cb) {
         child.kill("SIGQUIT");
         helper.wait_until_line(tail, "SIGQUIT", cb);
+      },
+
+      function(cb) {
+        setTimeout(cb, 1000);
       },
 
       function(cb) {
@@ -232,19 +257,20 @@ describe("ncluster", function() {
       function(data, cb) {
         data.should.match(/Hello From Worker/);
         data.should.match(/Connection: close/);
-        helper.get({host: 'localhost', port: 3000}, cb);
+        helper.get({host: 'localhost', port: 3000, agent: false}, cb);
       },
 
       function(ok, data, cb) {
         ok.should.equal(false);
-        done();
+        wait_for_child(done);
       }
     ]);
 
   });
 
   it("should restart workers that don't send heartbeat signals", function(done) {
-    var tail = helper.tail_log();
+    this.timeout(10000);
+    tail = helper.tail_log();
 
     spawn_cluster({heartbeat_timeout: 1000, heartbeat_interval: 100});
 
@@ -256,16 +282,17 @@ describe("ncluster", function() {
       },
 
       function(cb) {
-        helper.get({host: 'localhost', port: 3000, path: '/block_run_loop'}, cb);
+        helper.get({host: 'localhost', port: 3000, path: '/block_run_loop', agent: false}, cb);
       },
 
       function(ok, data, cb) {
+        ok.should.equal(true);
         data.should.equal("BLOCKED");
         helper.wait_until_line(tail, "Starting worker", cb);
       },
 
       function(cb) {
-        helper.get({host: 'localhost', port: 3000}, cb);
+        helper.get({host: 'localhost', port: 3000, agent: false}, cb);
       },
 
       function(ok, data, cb) {
@@ -280,29 +307,29 @@ describe("ncluster", function() {
 
 
   afterEach(function(done) {
+    if (child == null || child.exitCode != null) {
+      child = null;
+      done();
+    } else {
+      child.kill("SIGQUIT");
+      wait_for_child(done);
+    }
+  });
 
-    async.waterfall([
-      function(cb) {
-        if (child == null) {
-          cb();
-        } else {
-          child.kill("SIGTERM");
-          child.on("exit", function() {
-            cb();
-          });
-          child = null;
-        }
-      },
+  afterEach(function() {
+    if (tail != null) {
+      tail.kill("SIGKILL");
+      tail = null;
+    }
+  });
 
-      function(cb) {
+  afterEach(function(done) {
 
-        if (server != null) {
-          server.close();
-          server = null;
-        }
-        done();
-      }
-    ]);
+    if (server != null) {
+      server.close();
+      server = null;
+    }
+    done();
   });
 });
 

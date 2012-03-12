@@ -44,7 +44,10 @@ module.exports.spawn_cluster = function(options, name) {
 
   var child = child_process.spawn("node", [__dirname + "/../" + name + "/app.js", JSON.stringify(options)]);
   child.stdout.on("data", function(data) {
-    console.log("CLUSTER: ", data.toString());
+    console.log("CLUSTER %s: %s", child.pid, data.toString());
+  });
+  child.stderr.on("data", function(data) {
+    console.log("CLUSTER %s: %s", child.pid, data.toString());
   });
   return child;
 }
@@ -82,12 +85,29 @@ module.exports.open_request = function (options, cb) {
   });
 }
 
+function eat_buffer(log, line, cb) {
+  if (log.buffer != null) {
+    var bufline; 
+    while ((bufline = log.buffer.shift()) != null) {
+      if (bufline.toString().indexOf(line) >= 0) {
+        cb(null);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+ 
 module.exports.wait_until_line = wait_until_line = function(log, line, cb) {
-  var listener = function(data) {
+  if (eat_buffer(log, line, cb)) {
+    return;
+  }
 
-    if (data.toString().indexOf(line) >= 0) {
+  var listener = function(data) {
+    var lines = data.toString().split("\n");
+    log.buffer = lines;
+    if (eat_buffer(log, line, cb)) { 
       log.stdout.removeListener("data", listener);
-      cb(null);
     }
   };
 
