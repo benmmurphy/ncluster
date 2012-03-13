@@ -1,5 +1,7 @@
 Cluster solution based on node's cluster module.
 
+[![Build Status](https://secure.travis-ci.org/benmmurphy/ncluster.png)](http://travis-ci.org/benmmurphy/ncluster)
+
 #Features
 
 * Restarts workers that die
@@ -46,4 +48,6 @@ Example server.js
 # Examples
 
 https://github.com/benmmurphy/nodejs_vagrant_helloworld
+
+
 
