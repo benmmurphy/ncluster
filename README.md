@@ -45,6 +45,18 @@ Example server.js
 
     module.exports = http_server;
 
+# Default Configuration
+
+    var defaults = {
+      workers: os.cpus().length,
+      dir: path.dirname(process.argv[1]),
+      heartbeat_timeout: 10 * 1000,
+      startup_timeout: 60 * 1000,
+      log_dir: "log",
+      kill_wait_timeout: 30 * 1000,
+      heartbeat_interval: 500
+    };
+
 # Examples
 
 https://github.com/benmmurphy/nodejs_vagrant_helloworld
